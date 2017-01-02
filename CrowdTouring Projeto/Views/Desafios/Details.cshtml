@@ -1,0 +1,268 @@
+﻿@model CrowdTouring_Projeto.ViewModel.DetalhesDesafio
+@using Microsoft.AspNet.Identity;
+@{
+    ViewBag.Title = "Details";
+}
+
+<link rel="stylesheet" href="~/Content/star-rating.css">
+<link rel="stylesheet" href="~/Content/avgrund.css" />
+
+<div class="row" style="margin-top:60px;">
+    <div class="col-md-offset-1 col-md-10" id="detalhesDesafio">
+        <div class="row marginDesafio" >
+            <h2 style="text-align:center;font-weight:900">@Model.TipoTrabalho</h2>
+        </div>
+        <div class="row marginDesafio" style="margin-top:60px">
+            <label>Descricao:</label>
+            <p class="fontDesafio">@Model.Descricao</p>
+        </div>      
+        @Html.HiddenFor(m => m.lat, new { id = "lat2" })
+        @Html.HiddenFor(m => m.lon, new { id = "lon2" })     
+        <div class="row marginDesafio" style="margin-top:60px">
+            <p class="fontDesafio">Caminho a percorrer para chegar ao desafio:</p>
+            <p><span style="color:green">A</span> - A sua localização atual</p>
+            <p><span style="color:red">B</span> - Local associado ao desafio</p>
+            <div id="mapaLocal" style="padding-top:20px;width:900px; height:300px">
+
+            </div>
+        </div>
+        <div class="row marginDesafio" style="margin-top:60px">
+            <figure class="col-md-2">
+                <img src="~/StaticImages/ZIP.png" style="width:100px;height:100px" />
+                <figcaption>@Model.FileName</figcaption>
+            </figure>   
+            <div class="col-md-2"> 
+                <p id="valorDesafio">@Model.ValorMonetario €</p>
+                <p id="pontuacao">@Model.Pontuacao Ponto(s)</p>
+            </div>   
+            <div class="col-md-8">
+                @if (@Model.TipoAvaliacao == "AceitarSolucoes")
+                {
+                    <p style="font-size:15px"><span style="color:orange">Info:</span>Este desafio encontra-se em fase de @Model.TipoAvaliacao, e termina dia @Model.DataFinalAceitacao</p>
+                }
+                else if (@Model.TipoAvaliacao == "Votacao")
+                {
+                    DateTime data = @Model.DataFinalAceitacao;
+                    var dataVotacao = data.AddDays(Model.diasVotacao);
+                    <p style="font-size:15px"><span style="color:orange">Info:</span>Este desafio encontra-se em fase de @Model.TipoAvaliacao, e termina dia @dataVotacao</p>
+                }
+                else if (@Model.TipoAvaliacao == "Avaliacao")
+                {
+                    DateTime data = @Model.DataFinalAceitacao;
+                    var datas = Model.diasVotacao + Model.diasAvaliacao;
+                    var dataAvaliacao = data.AddDays(datas);
+                    <p style="font-size:15px"><span style="color:orange">Info:</span>Este desafio encontra-se em fase de @Model.TipoAvaliacao, e termina dia @dataAvaliacao</p>
+                }
+                else if (@Model.TipoAvaliacao == "Fechado")
+                {
+                    <p style="font-size:15px"><span style="color:orange">Info:</span>Este desafio encontra-se em fase de @Model.TipoAvaliacao, e termina dia @Model.dataFinal</p>
+                }
+            </div>      
+        </div>
+        <div class="row">
+            <div class="col-md-offset-1 col-md-2" style="margin-left:50px">
+                @Html.ActionLink("Download", "Download", new { id = Model.FileId })
+            </div>
+        </div>
+        <div class="row marginDesafio" style="margin-top:50px">
+            @{
+                foreach (var tags in Model.Tags)
+                {
+                    <ul class="tagMargin">
+                        <li><a href="#" class="tag" style="font-size:9px;color:@tags.cor">@tags.NomeTag</a></li>
+                    </ul>
+                }
+            }
+        </div>
+        @{bool userExists2 = false; }
+        @foreach(var i in Model.Solucoes)
+        {
+            if(User.Identity.GetUserId() == i.User.Id)
+            {
+                userExists2 = true;
+            }
+        }
+        @if (HttpContext.Current.User.IsInRole("Resolvedor") && userExists2 == false)
+        {
+            <div class="row marginDesafio" style="margin-top:50px">
+            @using (Html.BeginForm("Create", "Solucoes", FormMethod.Get, new { @class = "form", enctype = "multipart/form-data" }))
+            {
+                @Html.HiddenFor(a => a.DesafioId)
+                <button type="submit" class="btn btn-primary">Submete a tua solução</button>
+            }
+            </div>
+        }
+        <div class="row"  style="margin-top:50px">
+            <div class="col-md-4">
+                <text>Termina dia @Model.DataCriacao + 15</text>
+            </div>
+            @if (Model.idUtilizador == User.Identity.GetUserId())
+            {
+                <div class="col-md-offset-4 col-md-4">
+                    <text>Criado por <a href=@Url.Action("EditarUtilizador", "Account")>@Model.nomeUtilizador</a> @TimeSinceEvent(@Model.DataCriacao)</text>
+                </div>
+            }
+            else
+            {
+                <div class="col-md-offset-4 col-md-4">
+                    <text>Criado por <a href=@Url.Action("VisualizarPerfilUtilizador", "Account", new { @id = @Model.nomeUtilizador })>@Model.nomeUtilizador</a> @TimeSinceEvent(@Model.DataCriacao)</text>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+<div class="row">
+    <div class="col-md-offset-1 col-md-9">
+        @{bool userExists = false; }
+        @{bool VotacaoEfetuada = false;}
+        @foreach (var i in Model.Solucoes)
+        {
+            if(i.User.Id == User.Identity.GetUserId() || User.Identity.GetUserId() == Model.idUtilizador)
+            {
+                userExists = true;
+            }
+        } 
+        @foreach (var i in Model.Solucoes)
+        {
+           foreach (var j in i.Votos)
+           {
+               if (j.userId == User.Identity.GetUserId())
+               {
+                   VotacaoEfetuada = true;
+               }
+           }
+        }
+        
+        @foreach (var i in Model.Solucoes)
+        {
+            <div class="row">
+                @if (HttpContext.Current.User.IsInRole("Avaliador") && Model.TipoAvaliacao == "Avaliacao")
+                {
+                <div class="col-md-3" style="margin-top:40px">
+                    <input onchange = passaValor(this.value,@i.SolucaoId) name="input-2" value="0" class="rating-loading input-2" data-size="xs">
+                </div>
+                }
+                else if (Model.TipoAvaliacao == "Votacao")
+                {
+                    if (userExists == true || VotacaoEfetuada == true)
+                    {
+                        <div class="col-md-offset-2 col-md-1" style="margin-top:42px">
+                            <button disabled class="btn btn-xs"><span class="glyphicon glyphicon-arrow-up"></span></button>
+                            <p style="font-weight:900;margin-left:8px">@i.NumeroVotos</p>
+                            <button disabled class="btn btn-xs"><span class="glyphicon glyphicon-arrow-down"></span></button>
+                        </div>
+                    }
+                    else
+                    {
+                    <div class="col-md-offset-2 col-md-1" style="margin-top:42px">
+                        <button class="btn btn-xs" onclick="location.href='@Url.Action("Votacao", "Solucoes",  new { id = @i.SolucaoId, avaliacao = 1})'"><span class="glyphicon glyphicon-arrow-up"></span></button>
+                        <p style="font-weight:900;margin-left:8px">@i.NumeroVotos</p>
+                        <button class="btn btn-xs"><span class="glyphicon glyphicon-arrow-down" onclick="location.href='@Url.Action("Votacao", "Solucoes",  new { id = @i.SolucaoId, avaliacao = -1})'"></span></button>
+                    </div>
+                    }
+                }
+                <div class="col-md-9" style="background-color:#FFFF99;margin-top:40px;border:2px solid #191919;border-radius:4px">
+                    <div class="col-md-2">
+                        <div class="col-md-10" style="text-align:center;padding-top:5px">
+                            <p style="font-weight:900">@i.NumeroVisualizacoes</p>
+                        </div>
+                            <p style="font-size:10px">Visualizacões</p>
+                        </div>
+                    <div class="col-md-10" style="border-left:2px solid black">
+                        <div class="row">
+                            <div class="col-md-10">
+                                <p style="text-align:left;padding-top:5px"><a href="" class="VisualizarSolucao" data-url='@Url.Action("Details", "Solucoes", new { id = i.SolucaoId })' style="font-weight:900">@i.SolucaoTitulo</a></p>
+                            </div>  
+                            <button onclick="location.href='@Url.Action("Vencedor", "Solucoes", new {id = i.SolucaoId, id2 = i.SolucaoId })'" class="btn btn-xs btn-success"><span class="glyphicon glyphicon-ok"></span></button>
+                            @if (User.Identity.GetUserId() == i.User.Id && Model.TipoAvaliacao == "AceitarSolucoes")
+                            {
+                                <button onclick="location.href='@Url.Action("Edit", "Solucoes", new {@id = i.SolucaoId,desafio = Model.DesafioId })'" class="btn btn-warning btn-xs" style="margin-top:5px"><span class="glyphicon glyphicon-edit"></span></button>  
+                                <button onclick="location.href='@Url.Action("Eliminar", "Solucoes", new {@id = i.SolucaoId,desafio = Model.DesafioId })'" id="first" class="btn btn-danger btn-xs" style="margin-top:5px"><span class="glyphicon glyphicon-remove"></span></button>                  
+                            }
+                            @if(Model.TipoAvaliacao == "Avaliacao" || Model.TipoAvaliacao == "Fechado")
+                            {
+                                <p><span class="glyphicon glyphicon-star">@CalculaMediaAvaliacoes(@i.Estrelas)</span></p>
+                            }
+                            
+                        </div>
+                        <div class="col-md-offset-4 col-md-8">
+                            <p style="font-size:10px;text-align:right">Criado por <a href="@Url.Action("VisualizarPerfilUtilizador", "Account", new { @id = @i.User.Nome })">@i.User.UserName</a> @TimeSinceEvent(@i.DataCriacao)</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+<br/>
+<div class="modal" id="modal" style="margin-top:50px;">
+
+</div>
+
+
+
+@section scripts{
+@Scripts.Render("~/bundles/jquery")
+<script src="~/Scripts/jquery.avgrund.js"></script>
+<script src="~/Scripts/Modal.js"></script>
+<script src="~/Scripts/googleMapsView.js"></script>
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAsJgW2sXWkrM_kgAK5kF2TC2QMnHdv1G4&callback=initMapView"></script>
+<script src="~/Scripts/star-rating.js"></script>
+<script>
+
+        $('.input-2').rating({
+            step: 1,
+            starCaptions: { 1: 'Muito mau', 2: 'Mau', 3: 'razoavel', 4: 'Bom', 5: 'Muito Bom' },
+            starCaptionClasses: { 1: 'text-danger', 2: 'text-warning', 3: 'text-info', 4: 'text-primary', 5: 'text-success' },
+        });
+
+ function passaValor(valor,idSolucao)
+    {
+        location.href = '@Url.Action("EstrelasAvaliacao", "Solucoes")?estrela=' + valor + '&id=' + idSolucao;
+    }
+</script>
+<script src="~/Scripts/Modal.js"></script>
+}
+
+@functions{
+        public static string TimeSinceEvent(DateTime eventTime)
+        {
+            TimeSpan timeSince = DateTime.Now - eventTime;
+            if (timeSince.Days > 365)
+                return string.Format("há um ano atrás");
+            else if (timeSince.Days > 30)
+                return string.Format("há um mês atrás");
+            else if (timeSince.Days > 0)
+                return string.Format("há {0} dias atrás", timeSince.Days);
+            else if (timeSince.Hours > 0)
+                return string.Format("há {0} horas atrás", timeSince.Hours);
+            else if (timeSince.Minutes > 0)
+                return string.Format("há {0} minutos atrás", timeSince.Minutes);
+            else
+                return string.Format("há {0} segundos atrás", timeSince.Seconds);
+        }
+
+        public static decimal CalculaMediaAvaliacoes(ICollection<CrowdTouring_Projeto.Models.Estrela> estrelas)
+        {
+            decimal auxiliar = 0;
+            var count = estrelas.Count();
+            if (count != 0)
+            {
+                foreach (var i in estrelas)
+                {
+                    auxiliar += i.EstrelaValor;
+                } 
+
+                decimal media = auxiliar / count;
+                decimal mediaEstrelas = decimal.Round(media, 1, MidpointRounding.AwayFromZero);
+
+                return mediaEstrelas;
+            }
+            else
+            {
+                return count;
+            }
+        }
+    }
+
+
